@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" claude-code --start", "timeout": 15 },
+        { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/priorart/scripts/priorart-first.mjs\" session claude-code", "timeout": 5 }
+      ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/priorart/scripts/priorart-prompt.mjs\"", "timeout": 5 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "WebSearch|WebFetch", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/priorart/scripts/priorart-first.mjs\" web claude-code", "timeout": 5 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" claude-code", "timeout": 30 }] }
+    ]
+  }
+}

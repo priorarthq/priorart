@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "priorart",
+  "version": "0.4.0",
+  "description": "Shared memory for AI-agent work: before your agent starts digging, it finds out what a teammate (or anyone, on the public commons) already found.",
+  "author": { "name": "Prior Art", "url": "https://github.com/priorarthq" },
+  "homepage": "https://github.com/priorarthq/priorart",
+  "repository": "https://github.com/priorarthq/priorart",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "team", "investigations", "search", "sessions", "knowledge-sharing"],
+  "extensions": {
+    "com.openai": { "hooks": "./hooks/codex.json" }
+  }
+}

@@ -1,0 +1,100 @@
+erDiagram
+  APPLICATIONS ||--o{ TEAMS : contains
+  APPLICATIONS ||--o{ REPOS : owns
+  TEAMS ||--o{ TEAM_MEMBERS : has
+  USERS ||--o{ TEAM_MEMBERS : joins
+  TEAMS ||--o{ TEAM_REPOS : works_on
+  REPOS ||--o{ TEAM_REPOS : shared_by
+  USERS ||--o{ SESSIONS : runs
+  TEAMS |o--o{ SESSIONS : scopes
+  REPOS |o--o{ SESSIONS : in
+  SESSIONS ||--|| SESSION_TRANSCRIPTS : stores
+  SESSIONS ||--o{ RECORDS : yields
+  TEAMS |o--o{ RECORDS : scopes
+  USERS |o--o{ RECORDS : promotes
+
+  APPLICATIONS {
+    uuid id PK
+    text slug UK
+    text name
+    timestamptz created_at
+  }
+  TEAMS {
+    uuid id PK
+    uuid application_id FK
+    text slug
+    text name
+  }
+  USERS {
+    uuid id PK
+    text handle UK
+    text display_name
+    text email
+  }
+  TEAM_MEMBERS {
+    uuid team_id PK,FK
+    uuid user_id PK,FK
+    text role "member | admin"
+  }
+  REPOS {
+    uuid id PK
+    uuid application_id FK
+    text remote_url UK "normalized"
+    text name
+  }
+  TEAM_REPOS {
+    uuid team_id PK,FK
+    uuid repo_id PK,FK
+  }
+  SESSIONS {
+    uuid id PK
+    text agent "copilot-cli, claude-code"
+    text external_id "unique with agent"
+    uuid user_id FK
+    uuid team_id FK "nullable"
+    uuid repo_id FK "nullable"
+    text author "handle as sent by hook"
+    text repo "normalized remote, even if not onboarded"
+    text cwd
+    text git_branch
+    text head_sha
+    bool had_diff "no-diff signal"
+    timestamptz started_at
+    timestamptz ended_at
+    int turns
+    text prompts "zero-record search"
+    tsvector search_vec "GIN"
+  }
+  SESSION_TRANSCRIPTS {
+    uuid session_id PK,FK
+    text format "jsonl"
+    text content "native JSONL, verbatim"
+    int bytes
+    int lines
+    text sha256 "dedupe re-sends"
+    text source_path "transcriptPath on laptop"
+    timestamptz captured_at
+  }
+  RECORDS {
+    uuid id PK
+    uuid session_id FK
+    uuid team_id FK "nullable"
+    text status "draft | promoted | stale | rejected"
+    text kind
+    text title
+    text question
+    jsonb findings
+    jsonb evidence "claim, turn, tool"
+    text decision
+    text outcome
+    text_array tags
+    text author
+    text commit_sha "true as of"
+    text_array touched_files "stale detection"
+    uuid promoted_by FK
+    timestamptz promoted_at
+    text transcript_sha256 "extracted from this version"
+    timestamptz created_at
+    int hits
+    tsvector search_vec "GIN, weighted"
+  }

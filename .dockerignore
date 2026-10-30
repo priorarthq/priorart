@@ -1,0 +1,9 @@
+**/node_modules
+**/target
+**/dist
+.git
+.claude
+council
+docs
+skill
+mcp

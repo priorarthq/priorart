@@ -1,0 +1,46 @@
+server:
+  port: 8080
+  error:
+    whitelabel:
+      enabled: false   # unknown paths answer with a plain JSON error, not Spring's error page
+spring:
+  datasource:
+    url: ${PRIORART_DB_URL:jdbc:postgresql://localhost:5434/priorart}
+    username: ${PRIORART_DB_USER:priorart}
+    password: ${PRIORART_DB_PASSWORD:priorart}
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: validate
+  flyway:
+    enabled: true
+priorart:
+  # Extraction model. provider: none | openai  (openai = any OpenAI-compatible chat endpoint, incl. corp gateways)
+  extract:
+    provider: ${PRIORART_LLM_PROVIDER:none}
+    base-url: ${PRIORART_LLM_BASE_URL:https://api.openai.com/v1}
+    api-key: ${PRIORART_LLM_API_KEY:}
+    model: ${PRIORART_LLM_MODEL:gpt-4o-mini}
+    max-transcript-chars: 120000
+    quiet-seconds: ${PRIORART_EXTRACT_QUIET_SECONDS:300}
+    sweep-ms: ${PRIORART_EXTRACT_SWEEP_MS:60000}
+  # required: team API calls must carry a personal token (claimed via POST /api/users/claim); identity comes from it.
+  # off: legacy open mode for a single-user local setup (identity taken from the request, no approval to join teams).
+  team-auth: ${PRIORART_TEAM_AUTH:required}
+  # optional: a code people must present to claim a handle (share it inside the company, e.g. in .priorart.json)
+  server-admins: ${PRIORART_SERVER_ADMINS:}   # comma-separated handles that may create applications
+  # Who may read work from a repo. team: members of a team the repo belongs to. git: the repo's git host decides
+  # (GitHub / GitLab are asked whether the person's linked account can read it); unconfigured hosts use the team rule.
+  repo-access: ${PRIORART_REPO_ACCESS:team}
+  git:
+    github:
+      host: ${PRIORART_GIT_GITHUB_HOST:github.com}
+      api: ${PRIORART_GIT_GITHUB_API:https://api.github.com}
+      web: ${PRIORART_GIT_GITHUB_WEB:https://github.com}
+      client-id: ${PRIORART_GIT_GITHUB_CLIENT_ID:}     # OAuth app with device flow: people link their account
+      token: ${PRIORART_GIT_GITHUB_TOKEN:}             # server's read-only token: checks repos and collaborators
+    gitlab:
+      url: ${PRIORART_GIT_GITLAB_URL:https://gitlab.com}
+      host: ${PRIORART_GIT_GITLAB_HOST:}               # repos' host, if not the URL's (e.g. behind a proxy)
+      client-id: ${PRIORART_GIT_GITLAB_CLIENT_ID:}     # OAuth application (device flow, scope read_user)
+      token: ${PRIORART_GIT_GITLAB_TOKEN:}             # server's token with read_api: checks projects and members
+  claim-code: ${PRIORART_CLAIM_CODE:}

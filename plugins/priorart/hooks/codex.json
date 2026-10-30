@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [
+        { "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" codex --start", "timeout": 15 },
+        { "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-first.mjs\" session codex", "timeout": 5 }
+      ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-prompt.mjs\"", "timeout": 5 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" codex", "timeout": 30 }] }
+    ]
+  }
+}

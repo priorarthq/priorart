@@ -1,0 +1,14 @@
+{
+  "name": "priorart",
+  "owner": { "name": "Prior Art", "url": "https://github.com/priorarthq" },
+  "description": "Prior Art: shared memory for AI-agent work (Claude Code, GitHub Copilot CLI, Codex)",
+  "plugins": [
+    {
+      "name": "priorart",
+      "source": "./plugins/priorart",
+      "description": "Before your agent starts digging, it finds out what a teammate (or anyone, on the public commons) already found. Captures sessions, turns investigations into searchable records.",
+      "category": "productivity",
+      "tags": ["memory", "team", "search"]
+    }
+  ]
+}

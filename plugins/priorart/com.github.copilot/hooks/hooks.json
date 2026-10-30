@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" copilot-cli --start", "timeoutSec": 15 },
+      { "type": "prompt", "prompt": "Prior Art is on: this team shares what its agents found. Team knowledge first: before searching the internet, debugging or investigating, use the priorart skill to search what teammates already found (its search command, with the task in one line: error text, component, symptom). Use the web only for what the team's records don't answer." }
+    ],
+    "preToolUse": [
+      { "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-first.mjs\" web copilot-cli", "timeoutSec": 5 }
+    ],
+    "agentStop": [
+      { "type": "command", "command": "node \"${PLUGIN_ROOT}/skills/priorart/scripts/priorart-capture.mjs\" copilot-cli", "timeoutSec": 30 }
+    ]
+  }
+}

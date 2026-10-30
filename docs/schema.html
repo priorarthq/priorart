@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prior Art Schema</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1a1a1a; --muted:#666; --border:#ddd; --head:#2c5aa0; --headText:#ffffff; --row1:#f6f8fb; --row2:#ffffff; --line:#555; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121212; --fg:#ececec; --muted:#9a9a9a; --border:#333; --head:#3a6cc0; --headText:#ffffff; --row1:#1c1f24; --row2:#16181c; --line:#aaa; } }
+  :root[data-theme="dark"] { --bg:#121212; --fg:#ececec; --muted:#9a9a9a; --border:#333; --head:#3a6cc0; --headText:#ffffff; --row1:#1c1f24; --row2:#16181c; --line:#aaa; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .bar { position:sticky; top:0; z-index:2; display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 16px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .bar h1 { font-size:16px; margin:0 12px 0 0; }
+  .bar button { font:inherit; padding:6px 12px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); cursor:pointer; }
+  .bar span { color:var(--muted); font-size:13px; }
+  #wrap { overflow:auto; padding:16px; height:calc(100vh - 54px); }
+  #erd { transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>Prior Art schema</h1>
+  <button id="out" aria-label="Zoom out">−</button>
+  <button id="in" aria-label="Zoom in">+</button>
+  <button id="fit">Fit width</button>
+  <button id="one">100%</button>
+  <span id="pct"></span>
+  <span>· scroll to pan · source: docs/schema.mmd</span>
+</div>
+<div id="wrap"><div id="erd">Rendering…</div></div>
+<script type="text/plain" id="inline-src">
+erDiagram
+  APPLICATIONS ||--o{ TEAMS : contains
+  APPLICATIONS ||--o{ REPOS : owns
+  TEAMS ||--o{ TEAM_MEMBERS : has
+  USERS ||--o{ TEAM_MEMBERS : joins
+  TEAMS ||--o{ TEAM_REPOS : works_on
+  REPOS ||--o{ TEAM_REPOS : shared_by
+  USERS ||--o{ SESSIONS : runs
+  TEAMS |o--o{ SESSIONS : scopes
+  REPOS |o--o{ SESSIONS : in
+  SESSIONS ||--|| SESSION_TRANSCRIPTS : stores
+  SESSIONS ||--o{ RECORDS : yields
+  TEAMS |o--o{ RECORDS : scopes
+  USERS |o--o{ RECORDS : promotes
+
+  APPLICATIONS {
+    uuid id PK
+    text slug UK
+    text name
+    timestamptz created_at
+  }
+  TEAMS {
+    uuid id PK
+    uuid application_id FK
+    text slug
+    text name
+  }
+  USERS {
+    uuid id PK
+    text handle UK
+    text display_name
+    text email
+  }
+  TEAM_MEMBERS {
+    uuid team_id PK,FK
+    uuid user_id PK,FK
+    text role "member | admin"
+  }
+  REPOS {
+    uuid id PK
+    uuid application_id FK
+    text remote_url UK "normalized"
+    text name
+  }
+  TEAM_REPOS {
+    uuid team_id PK,FK
+    uuid repo_id PK,FK
+  }
+  SESSIONS {
+    uuid id PK
+    text agent "copilot-cli, claude-code"
+    text external_id "unique with agent"
+    uuid user_id FK
+    uuid team_id FK "nullable"
+    uuid repo_id FK "nullable"
+    text author "handle as sent by hook"
+    text repo "normalized remote, even if not onboarded"
+    text cwd
+    text git_branch
+    text head_sha
+    bool had_diff "no-diff signal"
+    timestamptz started_at
+    timestamptz ended_at
+    int turns
+    text prompts "zero-record search"
+    tsvector search_vec "GIN"
+  }
+  SESSION_TRANSCRIPTS {
+    uuid session_id PK,FK
+    text format "jsonl"
+    text content "native JSONL, verbatim"
+    int bytes
+    int lines
+    text sha256 "dedupe re-sends"
+    text source_path "transcriptPath on laptop"
+    timestamptz captured_at
+  }
+  RECORDS {
+    uuid id PK
+    uuid session_id FK
+    uuid team_id FK "nullable"
+    text status "draft | promoted | stale | rejected"
+    text kind
+    text title
+    text question
+    jsonb findings
+    jsonb evidence "claim, turn, tool"
+    text decision
+    text outcome
+    text_array tags
+    text author
+    text commit_sha "true as of"
+    text_array touched_files "stale detection"
+    uuid promoted_by FK
+    timestamptz promoted_at
+    text transcript_sha256 "extracted from this version"
+    timestamptz created_at
+    int hits
+    tsvector search_vec "GIN, weighted"
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(async () => {
+  const css = getComputedStyle(document.documentElement);
+  const v = (n) => css.getPropertyValue(n).trim();
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    er: { fontSize: 16, useMaxWidth: false, entityPadding: 18, minEntityWidth: 160 },
+    themeVariables: {
+      fontSize: "16px",
+      fontFamily: "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif",
+      primaryColor: v("--head"),
+      primaryTextColor: v("--headText"),
+      primaryBorderColor: v("--head"),
+      lineColor: v("--line"),
+      textColor: v("--fg"),
+      attributeBackgroundColorOdd: v("--row1"),
+      attributeBackgroundColorEven: v("--row2"),
+      tertiaryColor: v("--bg"),
+    },
+  });
+  let src = document.getElementById("inline-src").textContent;
+  if (location.protocol.startsWith("http")) { try { const r = await fetch("schema.mmd"); if (r.ok) src = await r.text(); } catch {} }
+  const { svg } = await mermaid.render("erd-svg", src);
+  const host = document.getElementById("erd");
+  host.innerHTML = svg;
+  const el = host.querySelector("svg");
+  el.style.maxWidth = "none";
+  // Entity name labels sit on the header fill: force them to the header text colour.
+  // Mermaid gives table names and column cells the same class; column cells carry "-attr-" in their id.
+  el.querySelectorAll("text.entityLabel").forEach((t) => {
+    const isAttr = t.id.includes("-attr-");
+    t.style.fill = isAttr ? v("--fg") : v("--headText");
+    t.style.fontWeight = isAttr ? (t.id.endsWith("-name") ? "500" : "400") : "700";
+    if (isAttr && (t.id.endsWith("-type") || t.id.endsWith("-comment"))) t.style.fill = v("--muted");
+    if (isAttr && t.id.endsWith("-key")) t.style.fill = v("--head");
+  });
+  const natW = el.viewBox.baseVal.width || el.getBBox().width;
+  const natH = el.viewBox.baseVal.height || el.getBBox().height;
+  el.setAttribute("width", natW); el.setAttribute("height", natH);
+  let z = 1;
+  const pct = document.getElementById("pct");
+  const apply = () => { host.style.transform = `scale(${z})`; host.style.width = `${natW * z}px`; host.style.height = `${natH * z}px`; pct.textContent = `${Math.round(z * 100)}%`; };
+  const fit = () => { z = Math.min(2, (document.getElementById("wrap").clientWidth - 32) / natW); apply(); };
+  document.getElementById("in").onclick = () => { z = Math.min(4, z * 1.25); apply(); };
+  document.getElementById("out").onclick = () => { z = Math.max(0.2, z / 1.25); apply(); };
+  document.getElementById("fit").onclick = fit;
+  document.getElementById("one").onclick = () => { z = 1; apply(); };
+  z = 1; apply();
+})();
+</script>
+</body>
+</html>
