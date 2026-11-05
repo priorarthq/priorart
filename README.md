@@ -1,198 +1,193 @@
 # Prior Art
 
-**Before your agent starts digging, it finds out whether a teammate already dug there.**
+**Before your agent starts digging, it checks whether a teammate already dug there.**
 
-Prior Art captures your team's AI-agent sessions (Claude Code, Codex, GitHub Copilot CLI) and turns the investigations
-in them (root-cause hunts, log analysis, "why does X happen" spikes) into searchable records. When anyone on the team
-starts a similar task, their agent is told what a teammate already found: what was tried, what failed, what the
-answer was, and which commit it was true for.
+Prior Art records your team's coding-agent sessions (Claude Code, Codex, GitHub Copilot CLI) and turns
+investigations into records anyone on the team can search: what the problem was, what was tried, what didn't work,
+what the answer was, and the commit it was true for. When someone starts a similar task, their agent is shown what a
+teammate already found.
 
-It runs on your own infrastructure. Transcripts go to your Prior Art server and nowhere else.
+You run the server yourself. Sessions go to it and nowhere else.
 
-It never talks to anything but your own server. Looking for a *public* place where anyone's agent shares fixes, a
-"Stack Overflow for agents"? That's a separate plugin:
-[Prior Art Commons](https://github.com/priorarthq/commons-plugin).
+For a public place where anyone's agent shares fixes, there's a separate plugin:
+[Prior Art Commons](https://github.com/priorarthq/commons-plugin). This repo has no public features.
 
-> **Status: early (v0).** It works end to end. Identity is a personal token per handle (claimed once), not yet SSO,
-> and secret redaction of *captured transcripts* isn't there yet. Run it inside your network. See
-> [What's not done yet](#whats-not-done-yet).
+> **Status: early.** It works end to end. Identity is a personal token per person, not SSO yet, and captured
+> transcripts are stored as they are, without secret redaction. Run the server inside your network.
 
 ## Why
 
-- The same investigation gets repeated across a large org. Someone finds the root cause, writes "I checked X, Y, Z" in
-  a ticket, and a month later another team does it all again.
-- With agents, the whole trail already exists (prompts, tool calls, evidence, conclusions), but it dies on one laptop.
-- Tools that track agent work anchor it to **commits**. Investigations often produce no commit, so they're the work
-  that gets lost, and the work most often repeated.
+The same investigation gets repeated across a company. Someone finds the root cause of a nightly 502, and a month
+later another team digs through the same logs. With agents, the whole trail of an investigation already exists, but
+it stays on one laptop. Tools that track agent work tie it to commits, and investigations often end without one.
 
-## How it works
+## Install
 
-```
- your agent ──hooks──▶ capture ──▶ "no code changed?" ──▶ draft record ──▶ promote (1 click, optional)
-                                       (investigation)     question · findings · evidence · decision · commit
-                                                                   │
- a teammate's agent ◀── "Alice looked at this on Tuesday: …" ◀── search (before work starts)
-```
+You need Node 18 or newer. Pick your agent below, then do [Set up](#set-up).
 
-1. **Capture is silent.** Agent hooks send each session's transcript to your server when the agent stops.
-2. **Investigations are detected automatically.** A session that ends without changing code, compared against the git
-   state when it started, becomes a **draft record**, extracted by an LLM you configure (or a simple fallback).
-3. **Search is loud.** Before work starts, the agent searches Prior Art. In Claude Code a hook does this on every
-   prompt and stays quiet unless a hit really overlaps. Teammates' raw sessions are searchable too, before anyone
-   writes anything up.
-4. **People only confirm.** Nobody has to write documentation. Promoting a draft is optional and makes it rank first.
-   Records keep the commit they were true for, so stale ones can be spotted.
+### Claude Code
 
-Everything is scoped by **application → team → repo**, and repos are recognised by their git remote. Teams see their
-own application's work by default. Work that hasn't been assigned to a team yet is visible to everyone.
-
-## Get started
-
-**1. Install the plugin** in your agent.
-
-Claude Code:
+In the Claude Code terminal:
 
 ```text
 /plugin marketplace add priorarthq/priorart
 /plugin install priorart@priorart
 ```
 
-Codex:
+In the Claude desktop app, `/plugin` isn't available. Run these in a terminal instead:
+
+```bash
+claude plugin marketplace add priorarthq/priorart
+claude plugin install priorart@priorart --scope user
+```
+
+Start a new session afterwards so the plugin loads.
+
+### Codex
 
 ```bash
 codex plugin marketplace add priorarthq/priorart
 codex plugin add priorart@priorart
 ```
 
-GitHub Copilot CLI:
+Codex runs a plugin's hooks only after you approve them. Start Codex, run `/hooks`, and trust the Prior Art hooks once.
+
+### GitHub Copilot CLI
 
 ```bash
 copilot plugin marketplace add priorarthq/priorart
 copilot plugin install priorart@priorart
 ```
 
-**2. Run `/priorart:onboard`** in Claude Code, or say *"set up Prior Art"* in Codex or Copilot CLI.
+The Copilot files follow GitHub's plugin documentation but haven't been tried on a real Copilot CLI install yet. If
+something doesn't work, please open an issue.
 
-Your agent takes it from there. It asks a few questions, one at a time, and does each step itself: your team's
-server (it starts one for you if your team doesn't have one yet), your name, and your team. If you're the first on
-the team, it ends with a message to paste to your teammates, and it can add a `.priorart.json` to your repo so their
-setup fills itself in. Restart the agent once at the end.
+### Without the plugin
 
-That's all. From then on it works in the background:
+`./install.sh` copies the skills into all three agents (`~/.claude/skills`, `~/.agents/skills` for Codex,
+`~/.copilot/skills`). Setup then installs the hooks too. `./install.sh --project /path/to/repo` puts the skills in that
+repo's `.github/skills`, so everyone who clones it gets them.
 
-- Every session starts with one rule: check the team's knowledge before searching the internet.
-- Before each prompt, your agent is shown what teammates already found on the same problem.
-- In Claude Code and Copilot CLI, a web search the team already has an answer to is held back once, and your agent
-  reads the team's record first.
-- When a session ends without code changes, it becomes a draft record the whole team can search.
+## Set up
 
-Just ask things like *"has anyone looked at the checkout 502s?"* or *"save what we found to Prior Art"*.
+In Claude Code run `/priorart:onboard`. In Codex or Copilot CLI, say "set up Prior Art".
 
-<details>
-<summary>Without the plugin, or running the server by hand</summary>
+Your agent asks a few questions, one at a time, and runs each step:
 
-`./install.sh` copies the skills into Claude Code, Codex and Copilot CLI instead of the plugin; setup then also
-installs the hooks. `./install.sh --project /path/to/repo` puts them in a repo's `.github/skills`, so everyone who
-clones it gets them.
+1. **The server.** Paste the address your team lead gave you. If your team has no server yet, the agent offers to
+   start one with Docker on your machine.
+2. **Your name.** It suggests one from your git email. This claims the name on the server and saves a personal token
+   in `~/.priorart/config.json`.
+3. **Your team.** It joins the team the current repo belongs to, or creates the application and team if you're the
+   first person on the server. Joining a team that has an admin sends a request the admin approves.
 
-The server is a Docker Compose stack (API on <http://localhost:8080>, Postgres on :5434):
+The first person also gets a message to send to teammates (install commands, server address, team name), and the
+agent can add a `.priorart.json` to the repo so teammates' setup fills in the server and team.
+
+Setup is per repo. Your sessions in a repo are shared with your team only after you've run setup in that repo.
+
+## What happens after that
+
+You don't run anything. In the background:
+
+- Each session starts with a short rule for the agent: check the team's records before searching the internet.
+- Before each prompt (Claude Code, Codex), the agent is shown teammates' records that match it.
+- When the agent is about to search or fetch from the web (Claude Code, Copilot CLI) and the team already has records
+  on it, the first web call is held back and the agent is shown those records. Asking again goes through. Codex's web
+  search runs on OpenAI's side, where a hook can't see it.
+- When a session ends, it's sent to the server. A session that changed no code becomes a draft record.
+
+You can also ask directly: "has anyone looked at the checkout 502s?", "save what we found to Prior Art", or "get me the
+transcript of that session".
+
+The agent runs one script for all of this:
+
+```bash
+priorart.mjs search "checkout returns 502 after 14:00"     # what teammates found
+priorart.mjs get <id>                                      # a record or a session's prompts
+priorart.mjs transcript <session-id>                       # a session's full JSONL, saved to a file
+priorart.mjs save --promote --title "…" --decision "…"     # share what this session found
+priorart.mjs status                                        # what's set up, what to do next
+```
+
+Agents without skill support can use the MCP server in `mcp/` (`priorart_search`, `priorart_get`).
+
+## Who sees what
+
+- **Identity comes from the token.** Each person claims a name once and gets a personal token. The server never
+  trusts a name sent in a request.
+- **You see others' work only from repos you can read.** That applies to search, records, sessions and transcripts.
+  The server decides this one of two ways:
+  - `PRIORART_REPO_ACCESS=team` (default): repos that belong to the teams you're in.
+  - `PRIORART_REPO_ACCESS=git`: your GitLab or GitHub permissions. Each person links their account once during setup
+    (a link and a code, no token pasted). The server checks each repo with GitLab or GitHub using its own read-only
+    token, and remembers the answer for ten minutes.
+- **Work is shared only by its author.** A session goes to a team only if its author is in that team and ran setup in
+  that repo. Personal projects stay visible to their author alone.
+- **Who creates teams.** The first person to create an application on a server becomes a server admin. After that,
+  server admins create applications, and team admins or server admins create teams. Joining a team needs an admin's
+  approval.
+- **Tokens stay with their server.** Your token is sent only to the server in `~/.priorart/config.json`. A repo's
+  `.priorart.json` can suggest a server, but it isn't used until you confirm it.
+
+## What gets sent, and where
+
+- **Sent:** the agent's transcript file, your name, the working directory, the git remote, branch and commit, and
+  whether code changed during the session. Very large tool outputs and screenshots are trimmed first; prompts and
+  replies are kept.
+- **To:** only your server. Nothing goes to us or anyone else.
+- **Stored:** in your Postgres, whole, so records can be extracted again later with a better model.
+- **Extraction:** if you set `PRIORART_LLM_*`, transcripts are sent to that model endpoint to write the drafts. Use
+  your company's approved gateway. Without it, drafts are built from the conversation's own text.
+- **No secret redaction yet.** If your sessions can contain credentials, keep that in mind before sharing a server.
+- **Turning it off:** uninstall the plugin, or run `priorart.mjs uninstall-hooks` if you used `install.sh`.
+
+## Running the server
 
 ```bash
 git clone https://github.com/priorarthq/priorart.git && cd priorart
-docker compose up -d --build                  # PRIORART_PORT=8090 if 8080 is taken
+docker compose up -d --build                  # API on http://localhost:8080, Postgres on :5434
+PRIORART_PORT=8090 docker compose up -d --build   # if 8080 is taken
 ```
 
-</details>
-
-## Day to day
-
-The skill handles this in conversation. Under the hood it runs one zero-dependency script:
-
-```bash
-priorart.mjs search "checkout returns 502 after 14:00"     # before starting work
-priorart.mjs get <id>                                      # read a record or a teammate's session
-priorart.mjs save --promote --title "…" --decision "…"     # share what this session found
-priorart.mjs status                                        # what's configured, what to do next
-```
-
-Agents without skills can use the optional MCP server in `mcp/` (`priorart_search`, `priorart_get`).
-
-## Identity and visibility
-
-- **Team server.** Each person claims their handle once, which `config --handle` does during onboarding. They get a
-  personal token, and every hook, skill and MCP call sends it. The server takes who you are **from the token**, never
-  from the request. Joining a team that has an admin creates a request the admin approves (`requests` / `approve` /
-  `deny`). Creating a team makes you its admin.
-- **Who creates what.** Whoever creates the first application on a new server becomes a *server admin*. After that,
-  applications are created by server admins (`server-admin <handle>` adds one), and teams by server admins or admins
-  of a team in that application. Otherwise anyone could create their own team to skip an admin's approval.
-- **Who sees what: only repos you can read.** Search spans every repo you may read and leaves out the rest; the same
-  rule covers sessions, raw transcripts (JSONL) and records. Which repos you may read is decided one of two ways:
-  - `PRIORART_REPO_ACCESS=team` (default): repos of the teams you're in.
-  - `PRIORART_REPO_ACCESS=git`: your GitLab or GitHub permissions. Each person links their account once
-    (`/priorart:onboard` asks; GitLab/GitHub device sign-in, no token pasted anywhere), and the server asks the git
-    host, with its own read-only token, whether that account can read the repo. Lose access on GitLab, lose it here
-    within ten minutes. Repos on hosts the server isn't set up for use the team rule.
-
-  Work is shared at all only when its author is in the team that owns the repo and onboarded that repo themselves
-  (a teammate linking your repo never shares your sessions). Personal side projects, and sessions by someone not
-  approved yet, are visible **only to their author**.
-- **Tokens stay with their server.** Your personal token is sent only to the server in `~/.priorart/config.json`,
-  and the hooks send sessions nowhere else. A cloned repo's `.priorart.json` can suggest a server but can't redirect
-  your token or your sessions.
-
-## What gets captured, and where it goes
-
-- **Sent:** the agent's transcript file (verbatim), your handle, the working directory, the git remote, branch and
-  commit, and whether code changed during the session.
-- **To:** only the server URL in `~/.priorart/config.json`. Nothing goes to us or anyone else.
-- **Stored:** in your Postgres. Transcripts are kept whole so records can be re-extracted later with a better model.
-- **Extraction:** with `PRIORART_LLM_*` set, transcripts are sent to *that* endpoint. Use your company's approved
-  gateway. Without it, drafts are built locally from the first prompt.
-- **Turning it off:** `priorart.mjs uninstall-hooks` removes the hooks and leaves your other hooks untouched.
-
-There is **no secret redaction yet**. If your sessions can contain credentials, don't point the hooks at a shared
-server until that lands.
-
-## Configuration
-
-| Server (env) | Default | |
+| Setting (env) | Default | |
 |---|---|---|
 | `PRIORART_DB_URL`, `_USER`, `_PASSWORD` | `jdbc:postgresql://localhost:5434/priorart` | Postgres |
-| `PRIORART_LLM_PROVIDER` | `none` | `openai` = any OpenAI-compatible chat endpoint |
+| `PRIORART_LLM_PROVIDER` | `none` | `openai` for any OpenAI-compatible chat endpoint |
 | `PRIORART_LLM_BASE_URL`, `_API_KEY`, `_MODEL` | `https://api.openai.com/v1`, –, `gpt-4o-mini` | extraction model |
-| `PRIORART_EXTRACT_QUIET_SECONDS` | `300` | extract a session once it's been quiet this long |
-| `PRIORART_TEAM_AUTH` | `required` | `off` = open single-user mode (identity taken from requests) |
-| `PRIORART_REPO_ACCESS` | `team` | `git` = repo access follows GitLab/GitHub permissions (set a host below) |
-| `PRIORART_GIT_GITLAB_URL`, `_CLIENT_ID`, `_TOKEN` | `https://gitlab.com`, –, – | GitLab: an OAuth application (device flow, scope `read_user`) for people to link their account, and a server token with `read_api` that can see the group's projects and members |
-| `PRIORART_GIT_GITHUB_CLIENT_ID`, `_TOKEN` (+ `_HOST`, `_API`, `_WEB` for GitHub Enterprise) | –, – | GitHub: an OAuth app with device flow enabled, and a server token that can read the org's repos and collaborators |
-| `PRIORART_SERVER_ADMINS` | – | handles that may create applications (whoever creates the first one also becomes one) |
-| `PRIORART_PORT` (compose) | `8080` | host port, if 8080 is taken on your machine |
+| `PRIORART_EXTRACT_QUIET_SECONDS` | `300` | how long a session must be quiet before its draft is made |
+| `PRIORART_TEAM_AUTH` | `required` | `off` for a single-user local setup without tokens |
+| `PRIORART_SERVER_ADMINS` | – | names that may create applications |
+| `PRIORART_REPO_ACCESS` | `team` | `git` to follow GitLab/GitHub permissions |
+| `PRIORART_GIT_GITLAB_URL`, `_CLIENT_ID`, `_TOKEN` | `https://gitlab.com`, –, – | GitLab: an OAuth application with device flow and scope `read_user`, and a server token with `read_api` |
+| `PRIORART_GIT_GITHUB_CLIENT_ID`, `_TOKEN` | –, – | GitHub: an OAuth app with device flow, and a server token that can read the org's repos and collaborators. `_HOST`, `_API`, `_WEB` for GitHub Enterprise |
+| `PRIORART_PORT` (compose) | `8080` | host port |
 
-| Client | |
-|---|---|
-| `~/.priorart/config.json` | `serverUrl`, `author` (your handle), `scope` (`team` / `app` / `all`). Written by `priorart.mjs config` |
-| `.priorart.json` in a repo | `serverUrl`, `application`, `team` hints for onboarding |
-| `PRIORART_URL`, `PRIORART_AUTHOR`, `PRIORART_SCOPE` | env overrides |
+On your machine, `~/.priorart/config.json` holds the server address, your name and your token. A repo's
+`.priorart.json` can suggest `serverUrl`, `application` and `team` for setup.
 
-## Supported agents
+## Agents
 
-| Agent | Capture | Team first, before work and before the web | Status |
+| | Claude Code | Codex | GitHub Copilot CLI |
 |---|---|---|---|
-| Claude Code | `SessionStart` + `Stop` hooks | session rule, hint before each prompt, web search/fetch held back once when the team has it | used daily; plugin tested |
-| Codex | `SessionStart` + `Stop` hooks | session rule, hint before each prompt (its web search runs on OpenAI's side, out of a hook's reach) | plugin and hooks tested with Codex-format sessions |
-| GitHub Copilot CLI | `sessionStart` + `agentStop` hooks | session rule, web fetch/search held back once when the team has it | follows GitHub's documented formats, not yet tried on a real Copilot install; please report issues |
-| Others (Cursor, …) | adapter needed (one class per agent) | MCP server | contributions welcome |
+| Install | plugin | plugin (trust hooks with `/hooks`) | plugin |
+| Capture | `SessionStart`, `Stop` | `SessionStart`, `Stop` | `sessionStart`, `agentStop` |
+| Rule at session start | yes | yes | yes |
+| Records shown before each prompt | yes | yes | no (Copilot doesn't allow it) |
+| First web call held back | yes | no (web search runs on OpenAI's side) | yes |
+| Tested | daily use | with Codex-format sessions | not yet on a real install |
+
+Other agents (Cursor and so on) need a transcript reader on the server, one class per agent. Contributions welcome.
 
 ## Repository layout
 
 ```
-plugins/priorart/  the plugin for Claude Code, Codex and Copilot CLI: the skill (SKILL.md + zero-dep scripts: CLI,
-                 capture, prompt hint, team-first gate) and each agent's hooks and manifest
-server/          Spring Boot 3.5 / Java 21 / Postgres 16: ingest, extraction, search, onboarding API
-mcp/             optional stdio MCP server
-docs/            schema diagram (docs/schema.html)
-PLAN.md          plan and decisions; council/ is the review that shaped them
+plugins/priorart/  the plugin: skills (setup and the main skill, zero-dependency Node scripts) and each agent's hooks
+server/            Spring Boot 3.5, Java 21, Postgres 16: capture, extraction, search, teams and access
+mcp/               optional MCP server
+tests/skill/       tests for the plugin scripts
+docs/              database schema diagram
+PLAN.md            plan and decisions (council/ is the review that shaped them)
 ```
 
 ## Development
@@ -200,17 +195,21 @@ PLAN.md          plan and decisions; council/ is the review that shaped them
 ```bash
 docker compose up -d postgres                 # database only
 (cd server && mvn spring-boot:run)            # API on :8080
-(cd server && mvn verify)                     # unit + integration tests (integration tests need Docker)
+(cd server && mvn verify)                     # unit and integration tests (needs Docker)
+node --test 'tests/skill/*.test.mjs'          # plugin script tests
+claude plugin validate plugins/priorart       # plugin manifest check
 ```
 
-CI runs the server tests, the skill tests and checks, the MCP server check, and the Docker build on every push and PR.
+CI runs the server tests, the plugin tests and checks, the MCP server check, and the Docker build on every push and
+pull request.
 
-## What's not done yet
+## Not done yet
 
-- **SSO.** Identity is a personal token per claimed handle. Corporate SSO/OIDC would replace the claim step.
-- **Secret redaction** before storage.
-- **Semantic search.** Matching is full-text, so synonyms ("504" vs "timeout") don't match yet.
-- **Copilot CLI transcript verification** (see above).
+- **SSO.** Identity is a personal token per person. Company SSO would replace claiming a name.
+- **Secret redaction** of captured transcripts.
+- **Search by meaning.** Search matches words, so "times out" doesn't find "timeout". The agent is told to search
+  again with the words a record would use.
+- **Copilot CLI** on a real install.
 
 ## License
 
