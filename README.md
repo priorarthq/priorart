@@ -21,6 +21,55 @@ The same investigation gets repeated across a company. Someone finds the root ca
 later another team digs through the same logs. With agents, the whole trail of an investigation already exists, but
 it stays on one laptop. Tools that track agent work tie it to commits, and investigations often end without one.
 
+## How it works
+
+```
+ your agent                          your Prior Art server                          a teammate's agent
+ ──────────                          ─────────────────────                          ──────────────────
+ session starts: note the git state
+ session ends: send the transcript ─▶ store the session (who, repo, team, commit)
+                                     no code changed? ─▶ draft record ─▶ promoted (optional)
+                                     search records and sessions ◀────── before each prompt, before a web
+                                     (only repos the teammate can read)  search, or "has anyone looked at…?"
+                                                      └───────────────▶ "Alice looked at this on Tuesday: …"
+```
+
+**1. Capture.** The plugin adds hooks to your agent. When a session starts, a hook notes the repo's git state (the
+commit and which files are changed). When the agent stops, another hook sends the session's transcript to your
+server, along with your name, the repo's git remote, the branch, the commit, and whether code changed since the
+session started. Before sending, it trims very large tool outputs and drops screenshots; your prompts and the agent's
+replies are kept whole. The hook runs after every turn, and the server updates the same session each time.
+
+**2. Which team it belongs to.** The server recognises a repo by its git remote. A session is filed under a team when
+you're a member of the team that owns that repo and you ran setup in that repo. Anything else, such as a personal
+project, stays private to you.
+
+**3. From session to record.** When a session has been quiet for a few minutes (`PRIORART_EXTRACT_QUIET_SECONDS`,
+default 300) and didn't change any code, the server treats it as an investigation and writes a draft record: the
+question, the findings, the evidence, the decision, tags, and the commit it was true for. If you've set up a model
+endpoint (`PRIORART_LLM_*`), the model writes the draft from the transcript; otherwise it's built from the
+conversation's own text. A session that changed code is still stored and searchable, but doesn't get a draft. You
+can also save any session on purpose ("save what we found to Prior Art") and promote a draft with a better title
+and decision. Promoted records rank higher than drafts.
+
+**4. Search.** Search covers records and the prompts of sessions nobody has written up yet, so a teammate's work can
+be found the day it happens. It matches words (Postgres full-text search), and hits are ranked by how many of the
+question's words they share. Results only come from repos you're allowed to read (see [Who sees what](#who-sees-what)).
+
+**5. The automatic checks.** These run without anyone asking:
+- At the start of each session, the agent gets one rule: check the team's records before searching the internet.
+- Before each prompt, the prompt is searched. Only strong matches are shown (they share at least half of the
+  prompt's main words, and at least two), and each one only once per session.
+- When the agent is about to search or fetch from the web, the query is searched too. If the team already has strong
+  matches, that first web call is held back and the agent sees the team's records instead. If they don't answer it,
+  the same web call goes through the second time.
+- Records and sessions are checked for risky instructions (piping a download into a shell, turning off TLS checks,
+  text written to steer an AI agent). These are marked ⚠, and text aimed at agents is never put into the agent's
+  context.
+
+**6. Reading more.** `get <id>` shows a record, or a session's prompts. `transcript <session-id>` saves the full
+transcript to a file, for when you want every reply and tool call.
+
 ## Install
 
 You need Node 18 or newer. Pick your agent below, then do [Set up](#set-up).
@@ -86,18 +135,10 @@ agent can add a `.priorart.json` to the repo so teammates' setup fills in the se
 
 Setup is per repo. Your sessions in a repo are shared with your team only after you've run setup in that repo.
 
-## What happens after that
+## Day to day
 
-You don't run anything. In the background:
-
-- Each session starts with a short rule for the agent: check the team's records before searching the internet.
-- Before each prompt (Claude Code, Codex), the agent is shown teammates' records that match it.
-- When the agent is about to search or fetch from the web (Claude Code, Copilot CLI) and the team already has records
-  on it, the first web call is held back and the agent is shown those records. Asking again goes through. Codex's web
-  search runs on OpenAI's side, where a hook can't see it.
-- When a session ends, it's sent to the server. A session that changed no code becomes a draft record.
-
-You can also ask directly: "has anyone looked at the checkout 502s?", "save what we found to Prior Art", or "get me the
+After setup you don't run anything: capture and the checks in [How it works](#how-it-works) happen on their own
+(which checks each agent supports is in [Agents](#agents)). You can also ask directly: "has anyone looked at the checkout 502s?", "save what we found to Prior Art", or "get me the
 transcript of that session".
 
 The agent runs one script for all of this:
