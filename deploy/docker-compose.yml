@@ -1,0 +1,42 @@
+# Prior Art team server from the published image, without cloning the repo:
+#   curl -fsSLO https://raw.githubusercontent.com/priorarthq/priorart/main/deploy/docker-compose.yml
+#   docker compose up -d                      → http://localhost:8080 (PRIORART_PORT=8090 if 8080 is taken)
+# Set PRIORART_DB_PASSWORD for anything beyond a trial. All server settings are in the README.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: priorart
+      POSTGRES_USER: priorart
+      POSTGRES_PASSWORD: ${PRIORART_DB_PASSWORD:-priorart}
+    volumes: ["priorart-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U priorart -d priorart"]
+      interval: 3s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    image: ghcr.io/priorarthq/priorart:${PRIORART_VERSION:-latest}
+    ports: ["${PRIORART_PORT:-8080}:8080"]
+    environment:
+      PRIORART_DB_URL: jdbc:postgresql://postgres:5432/priorart
+      PRIORART_DB_USER: priorart
+      PRIORART_DB_PASSWORD: ${PRIORART_DB_PASSWORD:-priorart}
+      PRIORART_LLM_PROVIDER: ${PRIORART_LLM_PROVIDER:-none}
+      PRIORART_LLM_BASE_URL: ${PRIORART_LLM_BASE_URL:-https://api.openai.com/v1}
+      PRIORART_LLM_API_KEY: ${PRIORART_LLM_API_KEY:-}
+      PRIORART_LLM_MODEL: ${PRIORART_LLM_MODEL:-gpt-4o-mini}
+      PRIORART_SERVER_ADMINS: ${PRIORART_SERVER_ADMINS:-}
+      PRIORART_REPO_ACCESS: ${PRIORART_REPO_ACCESS:-team}
+      PRIORART_GIT_GITLAB_URL: ${PRIORART_GIT_GITLAB_URL:-https://gitlab.com}
+      PRIORART_GIT_GITLAB_CLIENT_ID: ${PRIORART_GIT_GITLAB_CLIENT_ID:-}
+      PRIORART_GIT_GITLAB_TOKEN: ${PRIORART_GIT_GITLAB_TOKEN:-}
+      PRIORART_GIT_GITHUB_CLIENT_ID: ${PRIORART_GIT_GITHUB_CLIENT_ID:-}
+      PRIORART_GIT_GITHUB_TOKEN: ${PRIORART_GIT_GITHUB_TOKEN:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  priorart-pg:

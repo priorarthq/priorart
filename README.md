@@ -185,10 +185,18 @@ Agents without skill support can use the MCP server in `mcp/` (`priorart_search`
 
 ## Running the server
 
+From the published image, no clone needed:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/priorarthq/priorart/main/deploy/docker-compose.yml
+docker compose up -d                          # http://localhost:8080; PRIORART_PORT=8090 if 8080 is taken
+```
+
+Or from source:
+
 ```bash
 git clone https://github.com/priorarthq/priorart.git && cd priorart
 docker compose up -d --build                  # API on http://localhost:8080, Postgres on :5434
-PRIORART_PORT=8090 docker compose up -d --build   # if 8080 is taken
 ```
 
 | Setting (env) | Default | |
@@ -225,6 +233,7 @@ Other agents (Cursor and so on) need a transcript reader on the server, one clas
 ```
 plugins/priorart/  the plugin: skills (setup and the main skill, zero-dependency Node scripts) and each agent's hooks
 server/            Spring Boot 3.5, Java 21, Postgres 16: capture, extraction, search, teams and access
+deploy/            docker-compose.yml that runs the published image
 mcp/               optional MCP server
 tests/skill/       tests for the plugin scripts
 docs/              database schema diagram
